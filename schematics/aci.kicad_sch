@@ -2335,7 +2335,7 @@
     )
   )
 
-  (symbol (lib_id "74xx:74HC02") (at 127 44.45 0) (unit 2)
+  (symbol (lib_id "74xx:74HC02") (at 127 44.45 0) (unit 4)
     (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
     (uuid d5240b5d-42a7-4fa7-9ada-7bfbe49191f9)
     (property "Reference" "U14" (at 127 35.56 0)
@@ -2367,7 +2367,7 @@
     (instances
       (project "apple-1"
         (path "/49da186c-18fb-4ced-8737-786ea50767d0/08d01d12-1e76-4903-ba4b-59c171f11e17"
-          (reference "U14") (unit 2)
+          (reference "U14") (unit 4)
         )
       )
     )
