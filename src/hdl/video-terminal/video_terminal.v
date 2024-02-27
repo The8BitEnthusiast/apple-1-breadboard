@@ -184,7 +184,8 @@ module video_terminal(
     not D12F (last_h_n, last_h);
    //  or C9B (h_sync_n, d7.q[0], hbl_n );
    // fix h_sync pulse width
-    or C9B (h_sync_n, d7.q[0], hbl_n | ~(units < 5));
+    // or C9B (h_sync_n, d7.q[0], hbl_n | ~(units < 5));
+    or C9B (h_sync_n, d7.q[0], hbl_n | (units < 5));
 
     assign hbl_n = d7.q[2];
 
