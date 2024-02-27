@@ -1,0 +1,261 @@
+ca65 V2.19 - Git 3dfe03300
+Main file   : aci-debounced.s
+Current file: aci-debounced.s
+
+000000r 1               .segment "ACIDATA"
+000000r 1               .org $C080
+00C080  1               
+00C080  1  AA 55        .byte $AA,$55       ; bytes used for comparison as part of A0 override
+00C082  1               
+00C082  1               .segment "ACI"
+00C082  1               
+00C082  1               ;-------------------------------------------------------------------------
+00C082  1               ;
+00C082  1               ; The WOZ Apple Cassette Interface for the Apple 1
+00C082  1               ; Written by Steve Wozniak somewhere around 1976
+00C082  1               ;
+00C082  1               ;-------------------------------------------------------------------------
+00C082  1               
+00C082  1                       .org $C100
+00C100  1               
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               ; Memory declaration
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               
+00C100  1                       HEX1L = $24             ; End address of dump block
+00C100  1                       HEX1H = $25
+00C100  1                       HEX2L = $26             ; Begin address of dump block
+00C100  1                       HEX2H = $27
+00C100  1                       SAVEINDEX = $28         ; Save index in input buffer
+00C100  1                       LASTSTATE = $29         ; Last input state
+00C100  1                       LASTVALUE = $30         ; Used for debouncing purposes
+00C100  1               
+00C100  1                       IN = $0200              ; Input buffer
+00C100  1                       FLIP = $C000            ; Output flip-flop
+00C100  1                       TAPEIN = $C081          ; Tape input
+00C100  1                       KBD = $D010             ; PIA.A keyboard input
+00C100  1                       KBDCR = $D011           ; PIA.A keyboard control register
+00C100  1                       ESCAPE = $FF1A          ; Escape back to monitor
+00C100  1                       ECHO = $FFEF            ; Echo character to terminal
+00C100  1               
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               ; Constants
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               
+00C100  1                       CR = $8D                ; Carriage Return
+00C100  1                       ESC = $9B               ; ASCII ESC
+00C100  1               
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               ; Let’s get started
+00C100  1               ;-------------------------------------------------------------------------
+00C100  1               
+00C100  1  A9 AA        WOZACI: LDA #$AA                ; Print the Tape prompt '*'
+00C102  1  20 EF FF             JSR ECHO
+00C105  1  A9 8D                LDA #CR                 ; And drop the cursor one line
+00C107  1  20 EF FF             JSR ECHO
+00C10A  1               
+00C10A  1  A0 FF                LDY #$FF                 ; Reset the input buffer index
+00C10C  1  C8           NEXTCHAR: INY
+00C10D  1  AD 11 D0     KBDWAIT: LDA KBDCR              ; Wait for a key
+00C110  1  10 FB                BPL KBDWAIT             ; Still no key!
+00C112  1               
+00C112  1  AD 10 D0             LDA KBD                 ; Read key from keyboard
+00C115  1  99 00 02             STA IN,Y                ; Save it into buffer
+00C118  1  20 EF FF             JSR ECHO                ; And type it on the screen
+00C11B  1  C9 9B                CMP #ESC
+00C11D  1  F0 E1                BEQ WOZACI              ; Start from scratch if ESC!
+00C11F  1  C9 8D                CMP #CR
+00C121  1  D0 E9                BNE NEXTCHAR            ; Read keys until CR
+00C123  1               
+00C123  1  A2 FF                LDX #$FF                ; Initialize parse buffer pointer
+00C125  1               
+00C125  1               ;-------------------------------------------------------------------------
+00C125  1               ; Start parsing first or a new tape command
+00C125  1               ;-------------------------------------------------------------------------
+00C125  1               
+00C125  1  A9 00        NEXTCMD: LDA #0                 ; Clear begin and end values
+00C127  1  85 24                STA HEX1L
+00C129  1  85 25                STA HEX1H
+00C12B  1  85 26                STA HEX2L
+00C12D  1  85 27                STA HEX2H
+00C12F  1               
+00C12F  1  E8           NEXTCHR: INX                    ; Increment input pointer
+00C130  1  BD 00 02             LDA IN,X                ; Get next char from input line
+00C133  1  C9 D2                CMP #$D2                ; Read command? 'R'
+00C135  1  F0 56                BEQ READ                ; Yes!
+00C137  1  C9 D7                CMP #$D7                ; Write command? 'W'
+00C139  1  F0 35                BEQ WRITE               ; Yes! (note: CY=1)
+00C13B  1  C9 AE                CMP #$AE                ; Separator?'.'
+00C13D  1  F0 27                BEQ SEP                 ; Yes!
+00C13F  1  C9 8D                CMP #CR                 ; End of line?
+00C141  1  F0 20                BEQ GOESC               ; Escape to monitor! We’re done
+00C143  1  C9 A0                CMP #$A0                ; Ignore spaces: ' '
+00C145  1  F0 E8                BEQ NEXTCHR
+00C147  1  49 B0                EOR #$B0                ; Map digits to 0-9 '0'
+00C149  1  C9 0A                CMP #9+1                ; Is it a decimal digit?
+00C14B  1  90 06                BCC DIG                 ; Yes!
+00C14D  1  69 88                ADC #$88                ; Map letter 'A'-'F' to $FA-$FF
+00C14F  1  C9 FA                CMP #$FA                ; Hex letter?
+00C151  1  90 AD                BCC WOZACI              ; No! Character not hex!
+00C153  1               
+00C153  1  0A           DIG:    ASL                     ; Hex digit to MSD of A
+00C154  1  0A                   ASL
+00C155  1  0A                   ASL
+00C156  1  0A                   ASL
+00C157  1               
+00C157  1  A0 04                LDY #4                  ; Shift count
+00C159  1  0A           HEXSHIFT: ASL                   ; Hex digit left, MSB to carry
+00C15A  1  26 24                ROL HEX1L               ; Rotate into LSD
+00C15C  1  26 25                ROL HEX1H               ; Rotate into MSD
+00C15E  1  88                   DEY                     ; Done 4 shifts?
+00C15F  1  D0 F8                BNE HEXSHIFT            ; No! Loop
+00C161  1  F0 CC                BEQ NEXTCHR             ; Handle next character
+00C163  1               
+00C163  1               ;-------------------------------------------------------------------------
+00C163  1               ; Return to monitor, prints \ first
+00C163  1               ;-------------------------------------------------------------------------
+00C163  1               
+00C163  1  4C 1A FF     GOESC: JMP ESCAPE               ; Escape back to monitor
+00C166  1               
+00C166  1               ;-------------------------------------------------------------------------
+00C166  1               ; Separating . found. Copy HEX1 to Hex2. Doesn’t clear HEX1!!!
+00C166  1               ;-------------------------------------------------------------------------
+00C166  1               
+00C166  1  A5 24        SEP:    LDA HEX1L               ; Copy hex value 1 to hex value 2
+00C168  1  85 26                STA HEX2L
+00C16A  1  A5 25                LDA HEX1H
+00C16C  1  85 27                STA HEX2H
+00C16E  1  B0 BF                BCS NEXTCHR             ; Always taken!
+00C170  1               
+00C170  1               ;-------------------------------------------------------------------------
+00C170  1               ; Write a block of memory to tape
+00C170  1               ;-------------------------------------------------------------------------
+00C170  1               
+00C170  1  A9 40        WRITE:  LDA #64                 ; Write 10 second header
+00C172  1  20 D2 C1             JSR WHEADER
+00C175  1               
+00C175  1  88           WRNEXT: DEY                     ; Compensate timing for extra work
+00C176  1  A2 00                LDX #0                  ; Get next byte to write
+00C178  1  A1 26                LDA (HEX2L,X)
+00C17A  1               
+00C17A  1  A2 10                LDX #8*2                ; Shift 8 bits (decremented twice)
+00C17C  1  0A           WBITLOOP: ASL                   ; Shift MSB to carry
+00C17D  1  20 E1 C1             JSR WRITEBIT            ; Write this bit
+00C180  1  D0 FA                BNE WBITLOOP            ; Do all 8 bits!
+00C182  1               
+00C182  1  20 F7 C1             JSR INCADDR             ; Increment address
+00C185  1  A0 1E                LDY #30                 ; Compensate timer for extra work
+00C187  1  90 EC                BCC WRNEXT              ; Not done yet! Write next byte
+00C189  1               
+00C189  1  A6 28        RESTIDX: LDX SAVEINDEX          ; Restore index in input line
+00C18B  1  B0 98                BCS NEXTCMD             ; Always taken!
+00C18D  1               
+00C18D  1               ;-------------------------------------------------------------------------
+00C18D  1               ; Read from tape
+00C18D  1               ;-------------------------------------------------------------------------
+00C18D  1               
+00C18D  1  20 BC C1     READ:   JSR FULLCYCLE           ; Wait until full cycle is detected
+00C190  1  A9 16                LDA #22                 ; Introduce some delay to allow
+00C192  1  20 D2 C1             JSR WHEADER             ; the tape speed to stabilize
+00C195  1  20 BC C1             JSR FULLCYCLE           ; Synchronize with full cycle
+00C198  1               
+00C198  1               NOTSTART:
+00C198  1                       ;LDY #16                 ; adjusted value for debouncing
+00C198  1  A0 1F                LDY #31               ; Try to detect the much shorter
+00C19A  1  20 BF C1             JSR CMPLEVEL            ; start bit
+00C19D  1  B0 F9                BCS NOTSTART            ; Start bit not detected yet!
+00C19F  1               
+00C19F  1  20 BF C1             JSR CMPLEVEL            ; Wait for 2nd phase of start bit
+00C1A2  1               
+00C1A2  1                       ; LDY #38
+00C1A2  1  A0 3A                LDY #58                 ; Set threshold value in middle
+00C1A4  1  A2 08        RDBYTE: LDX #8                  ; Receiver 8 bits
+00C1A6  1  48           RDBIT:  PHA
+00C1A7  1  20 BC C1             JSR FULLCYCLE           ; Detect a full cycle
+00C1AA  1  68                   PLA
+00C1AB  1  2A                   ROL                     ; Roll new bit into result
+00C1AC  1                       ; LDY #37
+00C1AC  1  A0 39                LDY #57                 ; Set threshold value in middle
+00C1AE  1  CA                   DEX                     ; Decrement bit counter
+00C1AF  1  D0 F5                BNE RDBIT               ; Read next bit!
+00C1B1  1  81 26                STA (HEX2L,X)           ; Save new byte
+00C1B3  1               
+00C1B3  1  20 F7 C1             JSR INCADDR             ; Increment address
+00C1B6  1                       ; LDY #33
+00C1B6  1  A0 35                LDY #53                 ; Compensate threshold with workload
+00C1B8  1  90 EA                BCC RDBYTE              ; Do next byte if not done yet!
+00C1BA  1  B0 CD                BCS RESTIDX             ; Always taken! Restore parse index
+00C1BC  1               
+00C1BC  1  20 BF C1     FULLCYCLE: JSR CMPLEVEL         ; Wait for two level changes
+00C1BF  1  88           CMPLEVEL: DEY                   ; Decrement time counter
+00C1C0  1  88                   DEY
+00C1C1  1  AD 81 C0             LDA TAPEIN              ; Get Tape In data
+00C1C4  1  CD 81 C0             CMP TAPEIN
+00C1C7  1  D0 F6                BNE CMPLEVEL
+00C1C9  1  C5 29                CMP LASTSTATE           ; Same as before?
+00C1CB  1  F0 F2                BEQ CMPLEVEL            ; Yes!
+00C1CD  1  85 29                STA LASTSTATE           ; Save new data
+00C1CF  1               
+00C1CF  1  C0 80                CPY #128                ; Compare threshold
+00C1D1  1  60                   RTS
+00C1D2  1               
+00C1D2  1               ;-------------------------------------------------------------------------
+00C1D2  1               ; Write header to tape
+00C1D2  1               ;
+00C1D2  1               ; The header consists of an asymmetric cycle, starting with one phase of
+00C1D2  1               ; approximately (66+47)x5=565us, followed by a second phase of
+00C1D2  1               ; approximately (44+47)x5=455us.
+00C1D2  1               ; Total cycle duration is approximately 1020us ~ 1kHz. The actual
+00C1D2  1               ; frequency will be a bit lower because of the additional workload between
+00C1D2  1               ; the two loops.
+00C1D2  1               ; The header ends with a short phase of (30+47)x5=385us and a normal
+00C1D2  1               ; phase of (44+47)x5=455us. This start bit must be detected by the read
+00C1D2  1               ; routine to trigger the reading of the actual data.
+00C1D2  1               ;-------------------------------------------------------------------------
+00C1D2  1               
+00C1D2  1  86 28        WHEADER: STX SAVEINDEX          ; Save index in input line
+00C1D4  1  A0 42        HCOUNT: LDY #66                 ; Extra long delay
+00C1D6  1  20 E6 C1             JSR WDELAY              ; CY is constantly 1, writing a 1
+00C1D9  1  D0 F9                BNE HCOUNT              ; Do this 64 * 256 time!
+00C1DB  1  69 FE                ADC #$FE                 ; Decrement A (CY=1 all the time)
+00C1DD  1  B0 F5                BCS HCOUNT              ; Not all done!
+00C1DF  1  A0 1E                LDY #30                 ; Write a final short bit (start)
+00C1E1  1               ;
+00C1E1  1               ;-------------------------------------------------------------------------
+00C1E1  1               ; Write a full bit cycle
+00C1E1  1               ;
+00C1E1  1               ; Upon entry Y contains a compensated value for the first phase of 0
+00C1E1  1               ; bit length. All subsequent loops don’t have to be time compensated.
+00C1E1  1               ;-------------------------------------------------------------------------
+00C1E1  1               
+00C1E1  1  20 E6 C1     WRITEBIT: JSR WDELAY            ; Do two equal phases
+00C1E4  1  A0 2C                LDY #44                 ; Load 250us counter - compensation
+00C1E6  1               
+00C1E6  1  88           WDELAY: DEY                     ; Delay 250us (one phase of 2kHz)
+00C1E7  1  D0 FD                BNE WDELAY
+00C1E9  1  90 05                BCC WRITE1              ; Write a '1' (2kHz)
+00C1EB  1               
+00C1EB  1  A0 2F                LDY #47                 ; Additional delay for '0' (1kHz)
+00C1ED  1  88           WDELAY0: DEY                    ; (delay 250us)
+00C1EE  1  D0 FD                BNE WDELAY0
+00C1F0  1               
+00C1F0  1  BC 00 C0     WRITE1: LDY FLIP,X              ; Flip the output bit
+00C1F3  1  A0 29                LDY #41                 ; Reload 250us cntr (compensation)
+00C1F5  1  CA                   DEX                     ; Decrement bit counter
+00C1F6  1  60                   RTS
+00C1F7  1               
+00C1F7  1               ;-------------------------------------------------------------------------
+00C1F7  1               ; Increment current address and compare with last address
+00C1F7  1               ;-------------------------------------------------------------------------
+00C1F7  1               
+00C1F7  1  A5 26        INCADDR: LDA HEX2L              ; Compare current address with
+00C1F9  1  C5 24                CMP HEX1L               ; end address
+00C1FB  1  A5 27                LDA HEX2H
+00C1FD  1  E5 25                SBC HEX1H
+00C1FF  1  E6 26                INC HEX2L               ; And increment current address
+00C201  1  D0 02                BNE NOCARRY             ; No carry to MSB!
+00C203  1  E6 27                INC HEX2H
+00C205  1  60           NOCARRY: RTS
+00C206  1               
+00C206  1               ;-------------------------------------------------------------------------
+00C206  1               

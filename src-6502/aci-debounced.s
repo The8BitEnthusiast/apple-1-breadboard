@@ -24,6 +24,7 @@
         HEX2H = $27
         SAVEINDEX = $28         ; Save index in input buffer
         LASTSTATE = $29         ; Last input state
+        LASTVALUE = $30         ; Used for debouncing purposes
 
         IN = $0200              ; Input buffer
         FLIP = $C000            ; Output flip-flop
@@ -154,31 +155,39 @@ READ:   JSR FULLCYCLE           ; Wait until full cycle is detected
         JSR WHEADER             ; the tape speed to stabilize
         JSR FULLCYCLE           ; Synchronize with full cycle
 
-NOTSTART: LDY #31               ; Try to detect the much shorter
+NOTSTART: 
+        ;LDY #16                 ; adjusted value for debouncing
+        LDY #31               ; Try to detect the much shorter
         JSR CMPLEVEL            ; start bit
         BCS NOTSTART            ; Start bit not detected yet!
 
         JSR CMPLEVEL            ; Wait for 2nd phase of start bit
 
+        ; LDY #38
         LDY #58                 ; Set threshold value in middle
 RDBYTE: LDX #8                  ; Receiver 8 bits
 RDBIT:  PHA
         JSR FULLCYCLE           ; Detect a full cycle
         PLA
         ROL                     ; Roll new bit into result
+        ; LDY #37
         LDY #57                 ; Set threshold value in middle
         DEX                     ; Decrement bit counter
         BNE RDBIT               ; Read next bit!
         STA (HEX2L,X)           ; Save new byte
 
         JSR INCADDR             ; Increment address
+        ; LDY #33
         LDY #53                 ; Compensate threshold with workload
         BCC RDBYTE              ; Do next byte if not done yet!
         BCS RESTIDX             ; Always taken! Restore parse index
 
 FULLCYCLE: JSR CMPLEVEL         ; Wait for two level changes
 CMPLEVEL: DEY                   ; Decrement time counter
+        DEY
         LDA TAPEIN              ; Get Tape In data
+        CMP TAPEIN
+        BNE CMPLEVEL
         CMP LASTSTATE           ; Same as before?
         BEQ CMPLEVEL            ; Yes!
         STA LASTSTATE           ; Save new data

@@ -1,0 +1,46 @@
+ca65 V2.19 - Git 3dfe03300
+Main file   : test.s
+Current file: test.s
+
+000000r 1               .SEGMENT "TEST"
+000000r 1               .org $E000
+00E000  1               
+00E000  1               ; links to functions
+00E000  1               
+00E000  1               PRBYTE      = $FFDC
+00E000  1               ; FULLCYCLE   = $C1BC
+00E000  1               ; CMPLEVEL    = $C1BF
+00E000  1               ECHO        = $FFEF
+00E000  1               TAPEIN      = $C081
+00E000  1               LASTSTATE   = $29
+00E000  1               LASTVALUE   = $30
+00E000  1               
+00E000  1               loop:
+00E000  1  20 14 E0         JSR FULLCYCLE
+00E003  1  A0 1F            LDY #31
+00E005  1  20 17 E0         JSR CMPLEVEL
+00E008  1  98               TYA
+00E009  1  20 DC FF         JSR PRBYTE
+00E00C  1  A9 A0            LDA #' '+$80
+00E00E  1  20 EF FF         JSR ECHO
+00E011  1  4C 00 E0         JMP loop
+00E014  1               
+00E014  1  20 17 E0     FULLCYCLE: JSR CMPLEVEL         ; Wait for two level changes
+00E017  1  88           CMPLEVEL: DEY                   ; Decrement time counter
+00E018  1  88                   DEY
+00E019  1  AD 81 C0             LDA TAPEIN              ; Get Tape In data
+00E01C  1  CD 81 C0             CMP TAPEIN
+00E01F  1  D0 F6                BNE CMPLEVEL
+00E021  1               ; loop2:  STA LASTVALUE
+00E021  1                       ; LDA TAPEIN
+00E021  1               ;         CMP LASTVALUE
+00E021  1               ;         BNE loop2
+00E021  1  C5 29                CMP LASTSTATE           ; Same as before?
+00E023  1  F0 F2                BEQ CMPLEVEL            ; Yes!
+00E025  1  85 29                STA LASTSTATE           ; Save new data
+00E027  1               
+00E027  1  C0 80                CPY #128                ; Compare threshold
+00E029  1  60                   RTS
+00E02A  1               
+00E02A  1               
+00E02A  1               
