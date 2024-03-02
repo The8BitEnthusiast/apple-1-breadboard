@@ -10,6 +10,7 @@ This project builds upon Ben Eater's [6502 computer project](https://eater.net/6
 
 - An FPGA is used to emulate the Apple 1 Video Terminal circuit and also to allow the use of a standard PS/2 keyboard by converting the PS/2 protocol to the ASCII signals expected by the Apple 1. The Video Terminal is the result of another project of mine, the details of which can be found [here](https://github.com/The8BitEnthusiast/apple-1-video-terminal-on-fpga).
 - The 65C22 VIA IC is replaced with the 65C21 PIA, which is a drop-in replacement for the original PIA used on the Apple 1.
+- Address decoding was adjusted to match the Apple 1's memory map. Worth noting is that the EEPROM is selected for the $F000-$FFFF address range, which was used to hold Wozmon, and the $C000-$CFFF range, used for Apple 1 Cassette Interface. RAM is selected for the bottom half of the memory space, and also for the $E000-$EFFF, which was used to load BASIC. This creates a range conflict with $6000-$6FFF, but for the purpose of this project, that was OK.
 
 The top level schematic of this design is shown below. The KiCAD files are available in the schematics folder of this project.
 
