@@ -161,28 +161,31 @@ Current file: aci-debounced.s
 00C198  1               
 00C198  1               NOTSTART:
 00C198  1                       ;LDY #16                 ; adjusted value for debouncing
-00C198  1  A0 1F                LDY #31               ; Try to detect the much shorter
+00C198  1  A0 1B                LDY #27
+00C19A  1                       ;LDY #31               ; Try to detect the much shorter
 00C19A  1  20 BF C1             JSR CMPLEVEL            ; start bit
 00C19D  1  B0 F9                BCS NOTSTART            ; Start bit not detected yet!
 00C19F  1               
 00C19F  1  20 BF C1             JSR CMPLEVEL            ; Wait for 2nd phase of start bit
 00C1A2  1               
-00C1A2  1                       ; LDY #38
-00C1A2  1  A0 3A                LDY #58                 ; Set threshold value in middle
+00C1A2  1  A0 3C                LDY #60
+00C1A4  1                       ;LDY #58                 ; Set threshold value in middle
 00C1A4  1  A2 08        RDBYTE: LDX #8                  ; Receiver 8 bits
 00C1A6  1  48           RDBIT:  PHA
 00C1A7  1  20 BC C1             JSR FULLCYCLE           ; Detect a full cycle
 00C1AA  1  68                   PLA
 00C1AB  1  2A                   ROL                     ; Roll new bit into result
 00C1AC  1                       ; LDY #37
-00C1AC  1  A0 39                LDY #57                 ; Set threshold value in middle
+00C1AC  1  A0 3C                LDY #60                 ; Minor adjustment to take into account
+00C1AE  1                                               ; debouncing
+00C1AE  1                       ; LDY #57                 ; Set threshold value in middle
 00C1AE  1  CA                   DEX                     ; Decrement bit counter
 00C1AF  1  D0 F5                BNE RDBIT               ; Read next bit!
 00C1B1  1  81 26                STA (HEX2L,X)           ; Save new byte
 00C1B3  1               
 00C1B3  1  20 F7 C1             JSR INCADDR             ; Increment address
-00C1B6  1                       ; LDY #33
-00C1B6  1  A0 35                LDY #53                 ; Compensate threshold with workload
+00C1B6  1  A0 38                LDY #56
+00C1B8  1                       ; LDY #53                 ; Compensate threshold with workload
 00C1B8  1  90 EA                BCC RDBYTE              ; Do next byte if not done yet!
 00C1BA  1  B0 CD                BCS RESTIDX             ; Always taken! Restore parse index
 00C1BC  1               
@@ -190,11 +193,11 @@ Current file: aci-debounced.s
 00C1BF  1  88           CMPLEVEL: DEY                   ; Decrement time counter
 00C1C0  1  88                   DEY
 00C1C1  1  AD 81 C0             LDA TAPEIN              ; Get Tape In data
-00C1C4  1  CD 81 C0             CMP TAPEIN
-00C1C7  1  D0 F6                BNE CMPLEVEL
-00C1C9  1  C5 29                CMP LASTSTATE           ; Same as before?
-00C1CB  1  F0 F2                BEQ CMPLEVEL            ; Yes!
-00C1CD  1  85 29                STA LASTSTATE           ; Save new data
+00C1C4  1  CD 81 C0             CMP TAPEIN              ; is Tape In still the same?
+00C1C7  1  D0 F6                BNE CMPLEVEL            ; if not the same, read again
+00C1C9  1  C5 29                CMP LASTSTATE           ; Same state as before?
+00C1CB  1  F0 F2                BEQ CMPLEVEL            ; Yes, keep reading
+00C1CD  1  85 29                STA LASTSTATE           ; Save new state
 00C1CF  1               
 00C1CF  1  C0 80                CPY #128                ; Compare threshold
 00C1D1  1  60                   RTS

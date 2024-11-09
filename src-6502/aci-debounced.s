@@ -157,28 +157,31 @@ READ:   JSR FULLCYCLE           ; Wait until full cycle is detected
 
 NOTSTART: 
         ;LDY #16                 ; adjusted value for debouncing
-        LDY #31               ; Try to detect the much shorter
+        LDY #27
+        ;LDY #31               ; Try to detect the much shorter
         JSR CMPLEVEL            ; start bit
         BCS NOTSTART            ; Start bit not detected yet!
 
         JSR CMPLEVEL            ; Wait for 2nd phase of start bit
 
-        ; LDY #38
-        LDY #58                 ; Set threshold value in middle
+        LDY #60
+        ;LDY #58                 ; Set threshold value in middle
 RDBYTE: LDX #8                  ; Receiver 8 bits
 RDBIT:  PHA
         JSR FULLCYCLE           ; Detect a full cycle
         PLA
         ROL                     ; Roll new bit into result
         ; LDY #37
-        LDY #57                 ; Set threshold value in middle
+        LDY #60                 ; Minor adjustment to take into account
+                                ; debouncing
+        ; LDY #57                 ; Set threshold value in middle
         DEX                     ; Decrement bit counter
         BNE RDBIT               ; Read next bit!
         STA (HEX2L,X)           ; Save new byte
 
         JSR INCADDR             ; Increment address
-        ; LDY #33
-        LDY #53                 ; Compensate threshold with workload
+        LDY #56
+        ; LDY #53                 ; Compensate threshold with workload
         BCC RDBYTE              ; Do next byte if not done yet!
         BCS RESTIDX             ; Always taken! Restore parse index
 
@@ -186,11 +189,11 @@ FULLCYCLE: JSR CMPLEVEL         ; Wait for two level changes
 CMPLEVEL: DEY                   ; Decrement time counter
         DEY
         LDA TAPEIN              ; Get Tape In data
-        CMP TAPEIN
-        BNE CMPLEVEL
-        CMP LASTSTATE           ; Same as before?
-        BEQ CMPLEVEL            ; Yes!
-        STA LASTSTATE           ; Save new data
+        CMP TAPEIN              ; is Tape In still the same?
+        BNE CMPLEVEL            ; if not the same, read again 
+        CMP LASTSTATE           ; Same state as before?
+        BEQ CMPLEVEL            ; Yes, keep reading 
+        STA LASTSTATE           ; Save new state 
 
         CPY #128                ; Compare threshold
         RTS
