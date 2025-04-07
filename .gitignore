@@ -3,3 +3,4 @@ vivado-apple-1-breadboard/
 *.jou
 *.log
 *.str
+sim/

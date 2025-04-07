@@ -1,0 +1,132 @@
+#	Make rules for building and simulating Verilog apps. 
+#
+#    Copyright (C) 2023  John Winans
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# Make sure the all rule is seen first to make it the default target
+all::
+
+
+###################################################################
+# Rules to walk the filesystem tree
+# See: https://www.gnu.org/software/make/manual/html_node/Substitution-Refs.html
+###################################################################
+
+CLEAN_DIRS := $(SUBDIRS:%=clean-%)
+ALL_DIRS   := $(SUBDIRS:%=all-%)
+DOXY_DIRS  := $(SUBDIRS:%=doxy-%)
+
+.PHONY: all clean world doc timing $(CLEAN_DIRS) $(ALL_DIRS) $(DOXY_DIRS)
+
+all:: $(ALL_DIRS)
+
+clean:: $(CLEAN_DIRS)
+
+doc:: $(DOXY_DIRS)
+	if [ -f Doxyfile ]; then doxygen Doxyfile; fi
+
+world:: clean all
+
+
+# for each dir, do a make all
+$(ALL_DIRS):
+	$(MAKE) -C $(@:all-%=%) all
+
+# for each dir, do a make clean
+$(CLEAN_DIRS):
+	$(MAKE) -C $(@:clean-%=%) clean
+
+# for each dir, do a make doc
+$(DOXY_DIRS):
+	$(MAKE) -C $(@:doxy-%=%) doc
+
+
+###################################################################
+# The defaults below are for 2057-ICE40HX4K-TQ144-breakout
+# See: https://www.gnu.org/software/make/manual/html_node/Setting.html
+###################################################################
+
+COMPILE.v	?= yosys
+NEXTPNR 	?= nextpnr-ice40
+ARACHNE		?= arachne-pnr
+
+
+DEVICE		?= up5k
+PACKAGE		?= sg48
+FLASH_PROG	?= sudo iceprog -d i:0x0403:0x6014
+PINMAP		?= ./conf/pinmap-up5kbreakout.pcf
+
+FILES       ?=  ./src/hdl/video-terminal/and_3.v \
+./src/hdl/video-terminal/and_or_invert.v \
+./src/hdl/video-terminal/ic_2504x8.v \
+./src/hdl/video-terminal/ic_2513.v \
+./src/hdl/video-terminal/ic_2519.v \
+./src/hdl/video-terminal/ic_555.v \
+./src/hdl/video-terminal/ic_7400.v \
+./src/hdl/video-terminal/ic_7402.v \
+./src/hdl/video-terminal/ic_7404.v \
+./src/hdl/video-terminal/ic_74157.v \
+./src/hdl/video-terminal/ic_74160.v \
+./src/hdl/video-terminal/ic_74161.v \
+./src/hdl/video-terminal/ic_74166.v \
+./src/hdl/video-terminal/ic_74173.v \
+./src/hdl/video-terminal/ic_74174.v \
+./src/hdl/video-terminal/ic_74175.v \
+./src/hdl/video-terminal/ic_7427.v \
+./src/hdl/video-terminal/ic_74273.v \
+./src/hdl/video-terminal/nand_3.v \
+./src/hdl/video-terminal/nor_3.v \
+./src/hdl/video-terminal/or_3.v \
+./src/hdl/video-terminal/ram.v \
+./src/hdl/video-terminal/top.v \
+./src/hdl/video-terminal/video_terminal.v  \
+./src/hdl/ice40-clk-gen/pll_12_29.v \
+./src/hdl/ice40-clk-gen/clk_gen.v
+
+###################################################################
+# Rules that know how to build and simulate Verilog apps 
+###################################################################
+
+# useful for single-file builds
+%.blif : %.v
+	$(COMPILE.v) -p "synth_ice40 -top top -blif $@" $<
+
+# useful for single-file builds
+%.json : %.v
+	$(COMPILE.v) -p "synth_ice40 -top top -json $@" $(FILES)
+
+
+# Use nextpnr-ice40 to build from a JSON file
+%.asc : %.json
+	$(NEXTPNR) --$(DEVICE) --package $(PACKAGE) --pcf $(PINMAP) --asc $@ --json $<
+
+# Use arachne-pnr to build from a BLIF file 
+%.asc : %.blif
+	$(ARACHNE) -d $(DEVICE) --package $(PACKAGE) -p $(PINMAP) -o $@ $< 
+
+
+# make a binary config file from an ASC file
+%.bin : %.asc
+	icepack $< $@
+
+# Run Icarus and generate a vcd file (containing waveforms from the simulation)
+%.vcd: %.vvp
+	vvp $<
+
+clean::
+	rm -f *.bin *.vvp *.vcd *.asc *.blif *.json
+
+world:: clean all

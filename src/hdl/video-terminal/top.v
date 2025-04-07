@@ -29,7 +29,8 @@ module top(
     input clr_btn,
     output vid1,
     output vid2,
-    output heartbeat
+    output heartbeat,
+    output debug
     );
 
     wire clk_out;
@@ -51,6 +52,7 @@ module top(
         .rda_n(rda_n), 
         .vid1(vid1), 
         .vid2(vid2),
-        .heartbeat(hearbeat));
+        .heartbeat(heartbeat),
+        .debug(debug));
 
 endmodule

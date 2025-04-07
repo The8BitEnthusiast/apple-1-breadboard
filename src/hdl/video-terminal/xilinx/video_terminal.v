@@ -32,8 +32,7 @@ module video_terminal(
     input clr_btn,
     output vid1,
     output vid2,
-    output heartbeat,
-    output debug
+    output heartbeat
     );
     
     
@@ -70,31 +69,26 @@ module video_terminal(
 
     wire line_7;
 
-    wire curs, cursi, curso, curs2, curs_tgl, curs_tgl_in;
+    wire cursi, curso, curs2, curs_tgl, curs_tgl_in;
     
     assign heartbeat = curs_tgl_in;
     
     // clk_gen clk0 (.clk_in(clk_in), .clk_out(clk_out), .locked(locked));
     // assign clk = clk_out & locked;
 
-    wire [3:0] c13_q_n;
-
     ic_74175 c13 (.cp(clk),
                  .d({curso, curs2, vid1_in, dot_rate}),
                  .q(),
-                 .q_n(c13_q_n),
+                 .q_n(),
                  .mr_n(mr_n) );
 
-    assign dot_rate = c13_q_n[0];
-    assign vid1 = c13_q_n[1];
-    assign curs = c13_q_n[3];
-    assign debug = curs;
+    assign dot_rate = c13.q_n[0];
+    assign vid1 = c13.q_n[1];
+    assign curs = c13.q_n[3];
 
     ic_555 timer0 ( .clk(clk), .out(curs_tgl_in) );
 
     and c12a (curs_tgl, curs_tgl_in, curs2);
-
-    wire cb6_tgl;
     nor c10a (cb6_tgl, curs_tgl, cb[6]);
 
     ic_74157 c14 ( .i0a(rd[5]), 
@@ -133,23 +127,13 @@ module video_terminal(
                    .zd(cb[4]), 
                    .e_n(clr), 
                    .s(write_n) );
-    
-    wire null_wire;
-    // new ram based shift register
-    ic_2504x8 d4d5 (.clk(mem_phi), 
-            .si({1'b0,cb[6:1], cursi}), 
-            .so({null_wire, ci[6:1], curso}));
 
-    /*
     ic_2504 d5a ( .clk(mem_phi), .si(cb[1]), .so(ci[1]) );
     ic_2504 d5b ( .clk(mem_phi), .si(cb[2]), .so(ci[2]) );
     ic_2504 d4a ( .clk(mem_phi), .si(cb[3]), .so(ci[3]) );
     ic_2504 d4b ( .clk(mem_phi), .si(cb[4]), .so(ci[4]) );
     ic_2504 d14a ( .clk(mem_phi), .si(cb[5]), .so(ci[5]) );
     ic_2504 d14b ( .clk(mem_phi), .si(cb[6]), .so(ci[6]) );
-    // cursor shift register
-    ic_2504 c11b ( .clk(mem_phi), .si(cursi), .so(curso) );
-    */
 
     ic_74174 c7 ( .clk(mem_phi), 
                   .d({wc1_n, last_h, clr_fsm1, ack, da, last}), 
@@ -168,19 +152,16 @@ module video_terminal(
     and_or_invert c8b (c8b_out, clr_fsm1, last_h2, clr_fsm_or_btn, last2 );
     and c12b (wc1_n, c8b_out, write_n);
 
-    wire [3:0] d11_q;
-    wire d11_tc;
-
     ic_74161 d11 ( .pe_n (char_rate),
                   .p (4'b1010),
-                  .q (d11_q),
+                  .q (),
                   .cet (char_rate),
                   .cep (char_rate),
                   .cp (dot_rate),
-                  .tc (d11_tc),
+                  .tc (),
                   .mr_n (mr_n) );
 
-    assign char_rate = d11_q[3];
+    assign char_rate = d11.q[3];
     
     ic_74160 d6 ( .pe_n (last_h_n),
                   .p ({1'b0, tens[3], 1'b0, tens[3]}),
@@ -204,9 +185,9 @@ module video_terminal(
    //  or C9B (h_sync_n, d7.q[0], hbl_n );
    // fix h_sync pulse width
     // or C9B (h_sync_n, d7.q[0], hbl_n | ~(units < 5));
-    or C9B (h_sync_n, tens[0], hbl_n | (units < 5));
+    or C9B (h_sync_n, d7.q[0], hbl_n | (units < 5));
 
-    assign hbl_n = tens[2];
+    assign hbl_n = d7.q[2];
 
     ic_74161 d8 ( .pe_n (v_rst_n),
                   .p ({h3_vbl, h3_vbl, h3_vbl, h3_vbl}),
@@ -229,25 +210,24 @@ module video_terminal(
     nand d10c (vbl_n, v[7], v[6]);
     not d12d (vbl, vbl_n);
     or c9c (v_rst_n, wc1_n, vbl_n);
-    nor c10c (h3_vbl, vbl_n, units[3]);
+    nor c10c (h3_vbl, vbl_n, d6.q[3]);
 
-    nand d10b (line_phi, d11_q[2], hbl_n);
-    nand d10a (pix_ld_n, d11_tc, hbl_n);
+    nand d10b (line_phi, d11.q[2], hbl_n);
+    nand d10a (pix_ld_n, d11.tc, hbl_n);
 
     nand_3 b2a (line_7, v[0], v[1], v[2]);
     nor_3 c5a (mem_phi, h3_vbl, line_7, line_phi);
 
-    wire [3:0] d15_q;
     ic_74161 d15 ( .pe_n (v_cr),
                   .p (4'b1010),
-                  .q (d15_q),
+                  .q (),
                   .cet (last_h),
                   .cep (last_h),
                   .cp (char_rate),
                   .tc (),
                   .mr_n (mr_n) );
     
-    assign vinh_n = d15_q[1]; 
+    assign vinh_n = d15.q[1]; 
     
     and_3 and3v_cr (v_cr, v[5], vbl, v3_nor_v4);
     nor c10d (v3_nor_v4, v[3], v[4]);
@@ -256,7 +236,8 @@ module video_terminal(
     assign v_sync_n = ~ (v == 8'he4);
     nand c15c (vid1_in, h_sync_n, v_sync_n);
 
+    ic_2504 c11b ( .clk(mem_phi), .si(cursi), .so(curso) );
 
-    and c12c(cursi, wc2_n, c13_q_n[2]);
+    and c12c(cursi, wc2_n, c13.q_n[2]);
      
 endmodule

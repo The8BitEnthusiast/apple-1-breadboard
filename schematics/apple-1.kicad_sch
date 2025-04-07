@@ -4378,7 +4378,7 @@
     )
   )
 
-  (symbol (lib_id "74xx:74HC00") (at 91.44 172.72 0) (unit 2)
+  (symbol (lib_id "74xx:74HC00") (at 91.44 172.72 0) (unit 4)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 80c49a57-d609-4857-a76d-1fdb2bdd3fb6)
     (property "Reference" "U8" (at 97.79 168.91 0)
@@ -4410,7 +4410,7 @@
     (instances
       (project "apple-1"
         (path "/49da186c-18fb-4ced-8737-786ea50767d0"
-          (reference "U8") (unit 2)
+          (reference "U8") (unit 4)
         )
       )
     )

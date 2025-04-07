@@ -29,8 +29,14 @@ module ic_555(
     
     reg [23:0] count = 0;
     
-    assign out = count[23];
+    assign out = count < 4961249 ? 1'b1 : 1'b0;
     
-    always @ (posedge(clk)) count <= count + 1;
+    always @ (posedge(clk))
+    begin
+        if (count == 7441874)
+            count <= 0;
+        else
+            count <= count + 1;
+    end
     
 endmodule
